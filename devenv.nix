@@ -1,8 +1,5 @@
 {
   pkgs,
-  lib,
-  config,
-  inputs,
   ...
 }:
 
@@ -16,9 +13,12 @@
 
   # https://devenv.sh/languages/
   # languages.rust.enable = true;
-  languages.python = {
-    enable = true;
-    lsp.enable = false;
+  languages = {
+    python = {
+      enable = true;
+      lsp.enable = false;
+    };
+    typst.enable = true;
   };
 
   # https://devenv.sh/processes/
@@ -74,6 +74,7 @@
         ];
       };
       ruff-format.enable = true;
+      typstyle.enable = true;
     };
   };
 }

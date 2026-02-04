@@ -23,7 +23,7 @@ def tournament_select(
     for _ in range(k):
         i = random.randrange(len(population))
         score = scores[i]
-        if best is None or (best_score is not None and score < best_score):
+        if (best is None or best_score is None) or score < best_score:
             best = population[i]
             best_score = score
     assert best is not None
@@ -69,12 +69,11 @@ class Graph:
         colours = type(self).used_colours(colouring)
         return penalty * conflicts + colours
 
-    def genetic_colouring(self, cfg: GAConfig) -> tuple[list[int], int]:
-        random.seed(cfg.seed)
+    def _ga_for_k(self, cfg: GAConfig, k: int) -> tuple[list[int], int]:
         penalty = len(self.edges) + 1
 
         population = [
-            [random.randrange(1, cfg.max_colours + 1) for _ in range(self.n)]
+            [random.randrange(1, k + 1) for _ in range(self.n)]
             for _ in range(cfg.population)
         ]
 
@@ -99,16 +98,37 @@ class Graph:
                 p1 = tournament_select(population, scores, cfg.tournament_k)
                 p2 = tournament_select(population, scores, cfg.tournament_k)
                 c1, c2 = crossover(p1, p2)
-                mutate(c1, cfg.max_colours, cfg.mutation_rate)
-                mutate(c2, cfg.max_colours, cfg.mutation_rate)
+                mutate(c1, k, cfg.mutation_rate)
+                mutate(c2, k, cfg.mutation_rate)
                 next_pop.append(c1)
                 if len(next_pop) < cfg.population:
                     next_pop.append(c2)
 
             population = next_pop
 
-        assert best is not None and best_score is not None
+        assert not (best is None or best_score is None)
         return best, best_score
+
+    def genetic_colouring(self, cfg: GAConfig) -> tuple[list[int], int, int]:
+        random.seed(cfg.seed)
+
+        best = None
+        best_score = None
+        best_k = None
+
+        for k in range(1, cfg.max_colours + 1):
+            colouring, score = self._ga_for_k(cfg, k)
+            conflicts = self.conflicts(colouring)
+            if conflicts == 0:
+                return colouring, score, k
+
+            if (best is None or best_score is None) or (score < best_score):
+                best = colouring[:]
+                best_score = score
+                best_k = k
+
+        assert not (best is None or best_score is None or best_k is None)
+        return best, best_score, best_k
 
     def chromatic_number(self) -> int:
         if self.n == 0:
@@ -170,12 +190,13 @@ def main() -> None:
     )
 
     cfg = GAConfig(max_colours=3)
-    colouring, score = graph.genetic_colouring(cfg)
+    colouring, score, found_k = graph.genetic_colouring(cfg)
 
     conflicts = graph.conflicts(colouring)
     colours = Graph.used_colours(colouring)
 
     print("Best colouring:", colouring)
+    print("Found k:", found_k)
     print("Conflicts:", conflicts)
     print("Colours used:", colours)
     print("Fitness:", score)
